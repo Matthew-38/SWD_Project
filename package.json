@@ -17,7 +17,15 @@
   },
   "homepage": "https://github.com/Matthew-38/SWD_Project#readme",
   "dependencies": {
+    "connect-sqlite3": "^0.9.15",
+    "cookie-parser": "^1.4.6",
+    "crypto": "^1.0.1",
+    "csurf": "^1.11.0",
+    "ejs": "^3.1.10",
     "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "passport": "^0.7.0",
+    "passport-local": "^1.0.0",
     "sqlite3": "^5.1.7"
   }
 }
