@@ -181,7 +181,7 @@ app.get('/cards', function(req, res){
 
 app.get('/cards/students/:studentName',function(req, res){
     console.log(req.params.studentName);
-    db.all('SELECT question,answer,color,image FROM cards WHERE userId = ?', [req.params.studentName], function(err, rows){
+    db.all('SELECT question,answer,color,image,cardId FROM cards WHERE userId = ?', [req.params.studentName], function(err, rows){
         if(err){
             return next('An unknown error occurred. Please try again later.');
         }
@@ -208,6 +208,20 @@ app.post('/cards/students/:studentName/:question/:answer/:color/:image',function
     console.log(req.params);
     //console.log(res);
     db.run(`INSERT INTO cards(userId, question, answer, color, image) VALUES(?,?,?,?,?)`, [req.params.studentName,req.params.question, req.params.answer,req.params.color,req.params.image], function(err) {
+        if (err) {
+            console.log(err);
+            return next(null, false, { message: 'An unknown error occurred trying to add cards. Please try again later.' });
+        }
+        else{
+            //return next();
+            res.redirect('/cards/students/'+req.params.studentName);
+        }
+    });
+});
+app.post('/cards/students/:studentName/:question/:answer/:color/:image/:replace',function(req, res, next){
+    console.log(req.params);
+    //console.log(r);
+    db.run(`REPLACE INTO cards(cardId, userId, question, answer, color, image) VALUES(?,?,?,?,?,?)`, [req.params.replace,req.params.studentName,req.params.question, req.params.answer,req.params.color,req.params.image], function(err) {
         if (err) {
             console.log(err);
             return next(null, false, { message: 'An unknown error occurred trying to add cards. Please try again later.' });

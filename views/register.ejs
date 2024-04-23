@@ -1,18 +1,35 @@
-<div class="register">
-    <form autocomplete="off" action="/register" method="post">
-        
-        <label for="username">Username: </label><br>
-        <input type="text" name="username" id="username" required ><br><br>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        <label for="email">Email: </label><br>
-        <input type="email" name="email" id="email" required ><br><br>
+	<title>Memory Cards Sign up</title>
 
-        <label for="pwd">Password: </label><br>
-        <input type="password" name="pwd" id="pwd" required ><br><br>
+	<link rel="stylesheet" type="text/css" href="/style.css">
+</head>
+<body>
+    <div class="page-container">
+        <header class="page-header">
+            <h1 class="page-header__title">Sign up for Memory Cards</h1>
+        </header>
+        <form autocomplete="off" action="/register" method="post">
+            
+            <label for="username">Username: </label><br>
+            <input type="text" name="username" id="username" required ><br><br>
 
-        <label for="pwdConf">Confirm Password: </label><br>
-        <input type="password" name="pwdConf" id="pwdConf" required ><br><br>
+            <label for="email">Email: </label><br>
+            <input type="email" name="email" id="email" required ><br><br>
 
-        <button>Register</button>
-    </form>
-</div>
+            <label for="pwd">Password: </label><br>
+            <input type="password" name="pwd" id="pwd" required ><br><br>
+
+            <label for="pwdConf">Confirm Password: </label><br>
+            <input type="password" name="pwdConf" class="reglogin_button" required ><br><br>
+
+            <button>Register</button>
+            <span class="reglogin_swap">Already have an account? <a href="/">Sign in now</a></span>
+        </form>
+    </div>
+</body>

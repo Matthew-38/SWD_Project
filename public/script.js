@@ -1,5 +1,6 @@
 const cardsContainer = document.querySelector('.cards-container');
 const addNewCardsButton = document.querySelector('.new-cards');
+const modifyCardButton = document.querySelector('.modify-card');
 const prevCard = document.getElementById('prev-card');
 const nextCard = document.getElementById('next-card');
 const currentCardNumber = document.querySelector('.cards-nav__count');
@@ -19,6 +20,7 @@ const cardBgColorsNumber = 4;
 let currentActiveCard = 0;
 let imageData = null;
 let randomBgColor = getRandomNumber(1, 4);
+var modifyFlag=false;
 
 const allowedExtension = ['image/jpeg', 'image/jpg', 'image/png'];
 
@@ -89,8 +91,6 @@ function getCardsData() {
 
 function setCardsData(card) {
 	var image="None";
-	console.log(card);
-	//if(card.image){image=card.image;} //Current method to send image only works for very very small images. Later can implement with https://stackoverflow.com/questions/34972072/how-to-send-image-to-server-with-http-post-in-javascript-and-store-base64-in-mon as an idea
 	fetch("/cards/students/"+currStudent+"/"+card.question+"/"+card.answer+"/"+card.color+"/"+image, {
   		method: "POST",
   		body: JSON.stringify({
@@ -99,13 +99,21 @@ function setCardsData(card) {
   		headers: {
     		"Content-type": "application/json; charset=UTF-8"
   		}
-	}); //the body part is actually not accessible
-	/* 
-	var xhr = new XMLHttpRequest();
-	xhr.open("POST", "/cards/students/"+currUser, true);
-	xhr.setRequestHeader('Content-Type', 'application/json');
-	xhr.send(JSON.stringify({value: "Hello5"}));
-	*/
+	});
+	window.location.reload();
+};
+function updateCardsData(card) {
+	var image="None";
+	replace=cardsData[currentActiveCard].cardId;
+	fetch("/cards/students/"+currStudent+"/"+card.question+"/"+card.answer+"/"+card.color+"/"+image+"/"+replace, {
+  		method: "POST",
+  		body: JSON.stringify({
+			card
+  		}),
+  		headers: {
+    		"Content-type": "application/json; charset=UTF-8"
+  		}
+	});
 	window.location.reload();
 };
 
@@ -135,9 +143,17 @@ prevCard.addEventListener('click', () => {
 });
 
 addNewCardsButton.addEventListener('click', () => {
+	modifyFlag=false;
+	addNewCardButton.innerHTML="Add Card";
 	addNewForm.classList.remove('hidden');
 });
-
+modifyCardButton.addEventListener('click', () => {
+	modifyFlag=true;
+	addNewForm.classList.remove('hidden');
+	addNewCardButton.innerHTML="Modify Card";
+	questionFormElement.value=cardsData[currentActiveCard].question;
+	answerFormElement.value=cardsData[currentActiveCard].answer;
+});
 addNewFormCloseButton.addEventListener('click', () => {
 	addNewForm.classList.add('hidden');
 });
@@ -163,7 +179,12 @@ addNewCardButton.addEventListener('click', () => {
 		addNewForm.classList.add('hidden');	
 
 		//cardsData.push(newCard);
-		setCardsData(newCard);//cardsData);
+		if(modifyFlag){
+			updateCardsData(newCard);
+		}
+		else{
+			setCardsData(newCard);//cardsData);
+		}
 	}
 });
 

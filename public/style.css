@@ -61,6 +61,15 @@ body {
 	transition: border .15s ease-in;
 	cursor: pointer;
 }
+.clear-cards{
+	float:right;
+}
+.cards-menu {
+	display: flex;
+	justify-content: space-between;
+	width: 100%;
+	margin-bottom: 20px;
+}
 
 .page-button:hover,
 .page-button:focus {
@@ -144,16 +153,17 @@ body {
 
 .page-header__title {
 	position: relative;
-	margin: 0;
-	font-size: 42px;
+	margin-right: 200px;
+	margin-left: 200px;
+	font-size: 32px;
 }
-
+/*
 .page-header__button {
 	position: absolute;
 	top: 10px;
 	right: -65%;
 	font-size: 12px;
-}
+}*/
 
 .page-main {
 	display: flex;
@@ -416,6 +426,17 @@ body {
 		width: 200px;
 	}
 }
+
+.reglogin_swap{
+	display: block;
+	margin:auto;
+	padding: 12px;
+	font-size: 9px;
+}
+.reglogin_button{
+	margin:auto;
+}
+
 .dropbtn {
 	background-color: #ffffff;
 	color: rgb(0, 0, 0);

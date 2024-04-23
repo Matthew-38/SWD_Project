@@ -7,19 +7,21 @@
 
 	<title>Memory Cards Login</title>
 
-	<link rel="stylesheet" href="public/style.css">
+	<link rel="stylesheet" type="text/css" href="/style.css">
 </head>
 <body>
     <div class="page-container">
 		<header class="page-header">
 			<h1 class="page-header__title">Log in to Memory Cards</h1>
         </header>
-        <form action="/login" method="post">
-            <label for="username">Username:</label>
+        <form action="/login" autocomplete="off" method="post">
+            <label for="username">Username:</label><br>
             <input type="text" id="username" name="username" required><br><br>
-            <label for="password">Password:</label>
+            <label for="password">Password:</label><br>
             <input type="password" id="password" name="password" required ><br><br>
-            <button type="submit">Login</button>
+            <button type="submit" id="loginButton" class="reglogin_button">Login</button>
+            <span class="reglogin_swap">Don't have an account yet? <a href="/register">Sign up now</a></span>
         </form>
+        
     </div>
 </body>
