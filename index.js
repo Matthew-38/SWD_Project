@@ -6,7 +6,8 @@ var cookieParser = require('cookie-parser');
 var SQLiteStore = require('connect-sqlite3')(session);
 var sqlite3 = require('sqlite3').verbose();
 var LocalStrategy = require('passport-local');
-var crypto = require('crypto');
+var crypto = require('node:crypto');
+//var crypto = require('crypto');
 //var crypto = require('node:crypto'); //This might be better
 
 
