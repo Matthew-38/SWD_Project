@@ -152,7 +152,71 @@ app.get('/login', function(req,res){
 
 app.get('/cards', function(req, res){
     console.log(req.user);
-    res.render('cards', {name:req.user.id, at:req.user.accountType});
+    students=[];
+    if(req.user.accountType==2){
+        db.all('SELECT userId FROM users WHERE accountType = 1', [], function(err, rows){
+            if(err){
+                return next('An unknown error occurred. Please try again later.');
+            }
+            else{
+                rows.forEach(row =>{
+                    students.push(row.userId);
+                });
+                res.render('cards', {name:req.user.id, at:req.user.accountType, students:students, currStudent:false, cards:[]});
+            }
+        });
+    }
+    else{
+        db.all('SELECT * FROM cards WHERE userId = ?', [req.user.id], function(err, rows){
+            if(err){
+                return next('An unknown error occurred. Please try again later.');
+            }
+            else{
+                console.log(rows);
+                res.render('cards', {name:req.user.id, at:req.user.accountType, students:[], currStudent:false, cards:JSON.stringify(rows)});
+            }
+        });
+    }
+});
+
+app.get('/cards/students/:studentName',function(req, res){
+    console.log(req.params.studentName);
+    db.all('SELECT question,answer,color,image FROM cards WHERE userId = ?', [req.params.studentName], function(err, rows){
+        if(err){
+            return next('An unknown error occurred. Please try again later.');
+        }
+        else{
+            //console.log(rows);
+            res.render('cards', {name:req.user.id, at:req.user.accountType, students:[], currStudent:req.params.studentName, cards:JSON.stringify(rows)});
+        }
+    });
+});
+app.post('/cards/students/:studentName/deleteallcards',function(req, res){
+    console.log(req.params);
+    db.run(`DELETE FROM cards WHERE userId=(?)`, [req.params.studentName], function(err) {
+        if (err) {
+            console.log(err);
+            res.redirect('/cards/students/'+req.params.studentName);
+        }
+        else{
+            //return next();
+            res.redirect('/cards/students/'+req.params.studentName);
+        }
+    });
+});
+app.post('/cards/students/:studentName/:question/:answer/:color/:image',function(req, res, next){
+    console.log(req.params);
+    //console.log(res);
+    db.run(`INSERT INTO cards(userId, question, answer, color, image) VALUES(?,?,?,?,?)`, [req.params.studentName,req.params.question, req.params.answer,req.params.color,req.params.image], function(err) {
+        if (err) {
+            console.log(err);
+            return next(null, false, { message: 'An unknown error occurred trying to add cards. Please try again later.' });
+        }
+        else{
+            //return next();
+            res.redirect('/cards/students/'+req.params.studentName);
+        }
+    });
 });
 
 app.get('/register', function(req,res){

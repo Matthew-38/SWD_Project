@@ -22,7 +22,7 @@ let randomBgColor = getRandomNumber(1, 4);
 
 const allowedExtension = ['image/jpeg', 'image/jpg', 'image/png'];
 
-const cardsData = getCardsData();
+//const cardsData = getCardsData();
 
 function createCards() {
 	if (cardsData.length === 0) {
@@ -41,15 +41,15 @@ function getRandomNumber(min, max) {
 
 function createCard(data, index) {
 
-	const {question, answer, color, image} = data;
-
+	var {question, answer, color, image} = data;
+	if(image=="None"){image=null;}
 	const card = document.createElement('div');
 	card.classList.add('card');
 
 	if (index === 0) {
 		card.classList.add('active');
 	}
-
+	
 	const imageContent = image ? `
 		<div class="image-wrapper" style="border: 10px solid var(--card-color-${color})">
 			<img class="card-image" src="${image}" alt="${question}"></img>
@@ -81,12 +81,31 @@ function updateCardsCounter() {
 };
 
 function getCardsData() {
-	const cards = JSON.parse(localStorage.getItem('cards'));
+	
+	//const cards = JSON.parse(localStorage.getItem('cards'));
+	console.log(cardsData);
 	return cards === null ? [] : cards;
 };
 
-function setCardsData(cards) {
-	localStorage.setItem('cards', JSON.stringify(cards));
+function setCardsData(card) {
+	var image="None";
+	console.log(card);
+	//if(card.image){image=card.image;} //Current method to send image only works for very very small images. Later can implement with https://stackoverflow.com/questions/34972072/how-to-send-image-to-server-with-http-post-in-javascript-and-store-base64-in-mon as an idea
+	fetch("/cards/students/"+currStudent+"/"+card.question+"/"+card.answer+"/"+card.color+"/"+image, {
+  		method: "POST",
+  		body: JSON.stringify({
+			card
+  		}),
+  		headers: {
+    		"Content-type": "application/json; charset=UTF-8"
+  		}
+	}); //the body part is actually not accessible
+	/* 
+	var xhr = new XMLHttpRequest();
+	xhr.open("POST", "/cards/students/"+currUser, true);
+	xhr.setRequestHeader('Content-Type', 'application/json');
+	xhr.send(JSON.stringify({value: "Hello5"}));
+	*/
 	window.location.reload();
 };
 
@@ -143,8 +162,8 @@ addNewCardButton.addEventListener('click', () => {
 		
 		addNewForm.classList.add('hidden');	
 
-		cardsData.push(newCard);
-		setCardsData(cardsData);
+		//cardsData.push(newCard);
+		setCardsData(newCard);//cardsData);
 	}
 });
 
@@ -168,8 +187,18 @@ addImageInput.addEventListener('change', function () {
 		addImageTextArea.innerText = 'Invalid image format!';
 	}
 });
-
+/*
 clearCardsButton.addEventListener('click', () => {
-	localStorage.clear();
-	window.location.reload();
+	//localStorage.clear();
+	//window.location.reload();
+	fetch("/cards/students/"+currUser+"/deleteallcards", {
+		method: "POST",
+		body: JSON.stringify({
+			action:"delete"
+		}),
+		headers: {
+		  "Content-type": "application/json; charset=UTF-8"
+		}
+  	});
 });
+*/
