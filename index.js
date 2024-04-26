@@ -7,9 +7,8 @@ var SQLiteStore = require('connect-sqlite3')(session);
 var sqlite3 = require('sqlite3').verbose();
 var LocalStrategy = require('passport-local');
 var crypto = require('node:crypto');
-//var crypto = require('crypto');
-//var crypto = require('node:crypto'); //This might be better
-
+var ensureLoggedIn = require('connect-ensure-login').ensureLoggedIn;
+const { allowedNodeEnvironmentFlags } = require("node:process");
 
 var app = express();
 
@@ -21,6 +20,7 @@ app.use(session({
     secret: 'keyboard cat',
     resave: false, // don't save session if unmodified
     saveUninitialized: false, // don't create session until something stored
+    cookie: {maxAge:600000}, //Session timeout 10 minutes
     store: new SQLiteStore({ db: 'sessions.db', dir: './db/' })
   }));
 app.use(passport.initialize());
@@ -51,17 +51,17 @@ let db = new sqlite3.Database(DBFILE, sqlite3.OPEN_READWRITE, (err) => {
   });
 
 passport.use(new LocalStrategy(function verify(username, password, cb) {
+    if(!validateNoSpecialChars(username)){
+        return cb(null, false, { message:'Invalid username entered.'});
+    }
     db.get('SELECT * FROM users WHERE userId = ?', [ username ], function(err, row) {
         if (err) { return cb(err); }
         if (!row) { return cb(null, false, { message: 'Incorrect username or password.' }); }
             crypto.pbkdf2(password, row.salt, 310000, 32, 'sha256', function(err, hashedPassword) {
         if (err) { return cb(err); }
-            console.log(row.hashed_password, hashedPassword);
         if (!crypto.timingSafeEqual(row.hashed_password, hashedPassword)) {
-            console.log("Login not successful");
             return cb(null, false, { message: 'Incorrect username or password.' });
         }
-        console.log("Login successful");
         return cb(null, row);
       });
     });
@@ -78,41 +78,17 @@ passport.deserializeUser(function(user, cb) {
   });
 });
 
-/*
-passport.use(new LocalStrategy(
-    function(username, password, done) {
-      User.findOne({ username: username }, function (err, user) {
-        if (err) { return done(err); }
-        if (!user) { return done(null, false); }
-        if (!user.verifyPassword(password)) { return done(null, false); }
-        return done(null, user);
-      });
-    }
-  ));
-*/
-
-
 /////////////////////////////////////////////////////////////////////////
-// Incorrect CORS Security configuration #TODO remove or correct
+// CORS Security configuration - origin will need to be modified in Prod
 app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; font-src 'self'; img-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-src 'self'");
+
+    res.setHeader('Access-Control-Allow-Origin', 'localhost');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     next();
 });
 ////////////////////////////////////////////////////////////////////////
-// open database
-
-// close database
-function closeDB(){
-    db.close((err) => {
-        if (err) {
-          console.error(err.message);
-        }
-        console.log('Close the database connection.');
-      });
-}
-
 /*
 function isAuthenticated() {
     return function (req, res, next) {
@@ -123,24 +99,7 @@ function isAuthenticated() {
     }
   }
 
-function authenticate(req){
-    user=req.body['username'];
-    pswrd=req.body['password'];
-    console.log(user);
-    console.log(pswrd);
-    let accountType=0;
-    db.all("SELECT accountType FROM users WHERE userId='$1' AND password='$2';",[user,pswrd],(err,rows)=>{
-        console.log(rows);
-        if(err){
-            console.error(err.message);
-        }
-        rows.forEach((row) => {
-            console.log(row.accountType);
-            accountType= row.accountType;
-        });
-    });
-    return accountType; //Why does it give "Undefined"?
-}
+
 */
 
 ////////////////////////////////////////////////////////////////////////
@@ -148,89 +107,58 @@ app.get('/', function(req,res){
     res.render('index',)   
 });
 app.get('/login', function(req,res){
-    res.render('index',)   
+    res.redirect('/',)   
 });
 
-app.get('/cards', function(req, res){
-    console.log(req.user);
+app.get('/cards', ensureLoggedIn("/"), function(req, res){
     students=[];
     if(req.user.accountType==2){
         db.all('SELECT userId FROM users WHERE accountType = 1', [], function(err, rows){
-            if(err){
-                return next('An unknown error occurred. Please try again later.');
-            }
+            if(err){return next('An unknown error occurred. Please try again later.');}
             else{
-                rows.forEach(row =>{
-                    students.push(row.userId);
-                });
+                rows.forEach(row =>{students.push(row.userId);});
                 res.render('cards', {name:req.user.id, at:req.user.accountType, students:students, currStudent:false, cards:[]});
             }
         });
     }
     else{
         db.all('SELECT * FROM cards WHERE userId = ?', [req.user.id], function(err, rows){
-            if(err){
-                return next('An unknown error occurred. Please try again later.');
-            }
+            if(err){return next('An unknown error occurred. Please try again later.');}
             else{
-                console.log(rows);
                 res.render('cards', {name:req.user.id, at:req.user.accountType, students:[], currStudent:false, cards:JSON.stringify(rows)});
             }
         });
     }
 });
 
-app.get('/cards/students/:studentName',function(req, res){
-    console.log(req.params.studentName);
+app.get('/cards/students/:studentName', ensureLoggedIn("/"),function(req, res){
+    if(req.user.accountType==1 || !validateNoSpecialChars(req.params.studentName)){res.redirect("/logout"); return;} //Should log them out here if they go to this address while not an admin, or if they manipulate the student name with XSS etc.
     db.all('SELECT question,answer,color,image,cardId FROM cards WHERE userId = ?', [req.params.studentName], function(err, rows){
-        if(err){
-            return next('An unknown error occurred. Please try again later.');
-        }
-        else{
-            //console.log(rows);
-            res.render('cards', {name:req.user.id, at:req.user.accountType, students:[], currStudent:req.params.studentName, cards:JSON.stringify(rows)});
-        }
+        if(err){return next('An unknown error occurred. Please try again later.');}
+        else{res.render('cards', {name:req.user.id, at:req.user.accountType, students:[], currStudent:req.params.studentName, cards:JSON.stringify(rows)});}
     });
 });
-app.post('/cards/students/:studentName/deleteallcards',function(req, res){
-    console.log(req.params);
+app.post('/cards/students/:studentName/deleteallcards', ensureLoggedIn("/"),function(req, res){
+    if(req.user.accountType==1 || !validateNoSpecialChars(req.params.studentName)){res.redirect("/logout"); return;} //Should log them out here if they go to this address while not an admin, or if they manipulate the student name with XSS etc.
     db.run(`DELETE FROM cards WHERE userId=(?)`, [req.params.studentName], function(err) {
-        if (err) {
-            console.log(err);
-            res.redirect('/cards/students/'+req.params.studentName);
-        }
-        else{
-            //return next();
-            res.redirect('/cards/students/'+req.params.studentName);
-        }
+        if (err) {res.redirect('/cards/students/'+req.params.studentName);}
+        else{res.redirect('/cards/students/'+req.params.studentName);}
     });
 });
 app.post('/cards/students/:studentName/:question/:answer/:color/:image',function(req, res, next){
-    console.log(req.params);
-    //console.log(res);
-    db.run(`INSERT INTO cards(userId, question, answer, color, image) VALUES(?,?,?,?,?)`, [req.params.studentName,req.params.question, req.params.answer,req.params.color,req.params.image], function(err) {
-        if (err) {
-            console.log(err);
-            return next(null, false, { message: 'An unknown error occurred trying to add cards. Please try again later.' });
-        }
-        else{
-            //return next();
-            res.redirect('/cards/students/'+req.params.studentName);
-        }
+    if(req.user.accountType==1 || !validateNoSpecialChars(req.params.studentName) || !typeof(req.params.color)=='number'){res.redirect("/logout"); return;} //Should log them out here if they go to this address while not an admin, or if they manipulate the student name with XSS etc.
+    const [studentName,question,answer,color,image]=[sanitize(req.params.studentName),sanitize(decodeURIComponent(req.params.question)),sanitize(decodeURIComponent(req.params.answer)),req.params.color,null]; //image currently not implemented
+    db.run(`INSERT INTO cards(userId, question, answer, color, image) VALUES(?,?,?,?,?)`, [studentName,question,answer,color,image], function(err) {
+        if (err) {return next(null, false, { message: 'An unknown error occurred trying to add cards. Please try again later.' });}
+        else{res.redirect('/cards/students/'+req.params.studentName);}
     });
 });
-app.post('/cards/students/:studentName/:question/:answer/:color/:image/:replace',function(req, res, next){
-    console.log(req.params);
-    //console.log(r);
-    db.run(`REPLACE INTO cards(cardId, userId, question, answer, color, image) VALUES(?,?,?,?,?,?)`, [req.params.replace,req.params.studentName,req.params.question, req.params.answer,req.params.color,req.params.image], function(err) {
-        if (err) {
-            console.log(err);
-            return next(null, false, { message: 'An unknown error occurred trying to add cards. Please try again later.' });
-        }
-        else{
-            //return next();
-            res.redirect('/cards/students/'+req.params.studentName);
-        }
+app.post('/cards/students/:studentName/:question/:answer/:color/:image/:replace', ensureLoggedIn("/"),function(req, res, next){
+    if(req.user.accountType==1 || !validateNoSpecialChars(req.params.studentName)){res.redirect("/logout"); return;} //Should log them out here if they go to this address while not an admin, or if they manipulate the student name with XSS etc.
+    const [studentName,question,answer,color,image]=[sanitize(req.params.studentName),sanitize(decodeURIComponent(req.params.question)),sanitize(decodeURIComponent(req.params.answer)),req.params.color,null]; //image currently not implemented
+    db.run(`REPLACE INTO cards(cardId, userId, question, answer, color, image) VALUES(?,?,?,?,?,?)`, [req.params.replace,studentName,question,answer,color,image,], function(err) {
+        if (err) {return next(null, false, { message: 'An unknown error occurred trying to add cards. Please try again later.' });}
+        else{res.redirect('/cards/students/'+req.params.studentName);}
     });
 });
 
@@ -243,56 +171,59 @@ app.post('/login', passport.authenticate('local', {
     failureRedirect: '/',
     failureMessage: true
 }));
-app.post('/logout', function(req, res, next) {
+app.get('/logout', function(req, res, next) {
     req.logout(function(err) {
       if (err) { return next(err); }
       res.redirect('/');
     });
   });
 
+//Validation and sanitization functions
+function validateNoSpecialChars(testString){
+    return testString.match(/^[0-9a-zA-Z]+$/)
+}
+function validateEmail(email){
+    const res = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
+    return res.test(String(email).toLowerCase());
+}
+function sanitize(string) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#x27;',
+        "/": '&#x2F;',
+        "`": '&grave;',
+    };
+    const reg = /[&<>"'/`]/ig;
+    return string.replace(reg, (match)=>(map[match]));
+  }
 app.post('/register', function(req, res, next) {
     const { username, email, pwd, pwdConf } = req.body;
-    
-    // VALIDATION
-    const errors = [];
-
-    if(pwd !== pwdConf){
-        return next(`Passwords don't match`);
+    // Validation
+    if(!validateNoSpecialChars(username) || !validateEmail(email)){
+        return next("Username or email contains invalid characters or format. Please try again");
     }
+    if(pwd !== pwdConf){return next(`Passwords don't match`);}
+    //Check for duplicates in db
     db.get('SELECT * FROM users WHERE email = ?', [ email ], function(err, row){
-        if(err){
-            return next('An unknown error occurred. Please try again later.');
-        }
-        else if(row){
-            return next('Email already taken');
-        }
+        if(err){return next('An unknown error occurred. Please try again later.');}
+        else if(row){return next('Email already taken');}
         else{
             db.get('SELECT * FROM users WHERE userId = ?', [ username ], function(err, row){
-                if(err){
-                 return next('An unknown error (1) occurred. Please try again later.');
-                }
-                else if(row){
-                    return next( 'Username already taken');
-                }
-                else{
-                    // REGISTRATION
+                if(err){return next('An unknown error (1) occurred. Please try again later.');}
+                else if(row){return next( 'Username already taken'); }
+                else{// REGISTRATION
                     var salt = crypto.randomBytes(16);
                     crypto.pbkdf2(pwd, salt, 310000, 32, 'sha256', function(err, hashedPassword) {
-                        if(err){
-                            return next(null, false, { message: 'An unknown error (2) occurred. Please try again later.' });
-                        }
+                        if(err){return next(null, false, { message: 'An unknown error (2) occurred. Please try again later.' });}
                         at=1;
-                        if(username.includes("admin") || username.includes("Admin")){
-                            at=2;
-                        }
-                        console.log(username,email, hashedPassword,salt,at);
+                        if(username.includes("admin") || username.includes("Admin")){at=2;}
+                        //console.log(username,email, hashedPassword,salt,at);
                         db.run(`INSERT INTO users(userId, email, hashed_password, salt, accountType) VALUES(?,?,?,?,?)`, [username,email, hashedPassword,salt,at], function(err) {
-                            if (err) {
-                                return next(null, false, { message: 'An unknown error occurred (3). Please try again later.' });
-                            }
-                            else{
-                                res.redirect('/')
-                            }
+                            if (err) {return next(null, false, { message: 'An unknown error occurred (3). Please try again later.' });}
+                            else{res.redirect('/')} //send the user to the login page
                         });
                     });
                 }

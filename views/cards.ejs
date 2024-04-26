@@ -9,8 +9,10 @@
 
 	<link rel="stylesheet" type="text/css" href="/style.css">
 	<script>
-		console.log('<%- cards %>');
-		const cardsData=JSON.parse('<%- cards %>');
+		var cardsData=null;
+		<% if(cards.length>0){ %>
+			cardsData=JSON.parse('<%- cards %>');
+		<% } %>
 		const currStudent='<%- currStudent %>';
 	</script> 
 	<script src="/script.js" type="text/javascript" defer></script>
@@ -72,7 +74,7 @@
 	</div>
 	<footer class="page-footer">
 		<div class="cards-menu">
-			<form action="/logout" method="post">
+			<form action="/logout" method="get">
 				<button class="page-button logout">Logout</button>
 			</form>
 			<% if(at==2 && currStudent){ %>

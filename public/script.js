@@ -27,11 +27,13 @@ const allowedExtension = ['image/jpeg', 'image/jpg', 'image/png'];
 //const cardsData = getCardsData();
 
 function createCards() {
-	if (cardsData.length === 0) {
-		cardsContainer.innerHTML = '<p style="font-size: 18px">There are no cards yet, to create click on the create button...</p>';
-	} else {
-		cardsContainer.innerHTML = '';
-		cardsData.forEach((card, index) => createCard(card, index));
+	if (cardsData){
+		if (cardsData.length === 0) {
+			cardsContainer.innerHTML = '<p style="font-size: 18px">There are no cards yet, to create click on the create button...</p>';
+		} else {
+			cardsContainer.innerHTML = '';
+			cardsData.forEach((card, index) => createCard(card, index));
+		}
 	}
 };
 
@@ -85,13 +87,12 @@ function updateCardsCounter() {
 function getCardsData() {
 	
 	//const cards = JSON.parse(localStorage.getItem('cards'));
-	console.log(cardsData);
 	return cards === null ? [] : cards;
 };
 
 function setCardsData(card) {
 	var image="None";
-	fetch("/cards/students/"+currStudent+"/"+card.question+"/"+card.answer+"/"+card.color+"/"+image, {
+	fetch("/cards/students/"+currStudent+"/"+encodeURIComponent(card.question)+"/"+encodeURIComponent(card.answer)+"/"+card.color+"/"+image, {
   		method: "POST",
   		body: JSON.stringify({
 			card
@@ -105,7 +106,7 @@ function setCardsData(card) {
 function updateCardsData(card) {
 	var image="None";
 	replace=cardsData[currentActiveCard].cardId;
-	fetch("/cards/students/"+currStudent+"/"+card.question+"/"+card.answer+"/"+card.color+"/"+image+"/"+replace, {
+	fetch("/cards/students/"+currStudent+"/"+encodeURIComponent(card.question)+"/"+encodeURIComponent(card.answer)+"/"+card.color+"/"+image+"/"+replace, {
   		method: "POST",
   		body: JSON.stringify({
 			card
@@ -141,19 +142,22 @@ prevCard.addEventListener('click', () => {
 	cardsList[currentActiveCard].className = 'card active';
 	updateCardsCounter();
 });
-
-addNewCardsButton.addEventListener('click', () => {
-	modifyFlag=false;
-	addNewCardButton.innerHTML="Add Card";
-	addNewForm.classList.remove('hidden');
-});
-modifyCardButton.addEventListener('click', () => {
-	modifyFlag=true;
-	addNewForm.classList.remove('hidden');
-	addNewCardButton.innerHTML="Modify Card";
-	questionFormElement.value=cardsData[currentActiveCard].question;
-	answerFormElement.value=cardsData[currentActiveCard].answer;
-});
+if(cardsData && addNewCardsButton){
+	addNewCardsButton.addEventListener('click', () => {
+		modifyFlag=false;
+		addNewCardButton.innerHTML="Add Card";
+		addNewForm.classList.remove('hidden');
+	});
+}
+if(cardsData && modifyCardButton){
+	modifyCardButton.addEventListener('click', () => {
+		modifyFlag=true;
+		addNewForm.classList.remove('hidden');
+		addNewCardButton.innerHTML="Modify Card";
+		questionFormElement.value=cardsData[currentActiveCard].question;
+		answerFormElement.value=cardsData[currentActiveCard].answer;
+	});
+}
 addNewFormCloseButton.addEventListener('click', () => {
 	addNewForm.classList.add('hidden');
 });
