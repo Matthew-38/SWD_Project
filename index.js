@@ -145,7 +145,7 @@ app.get('/cards/students/:studentName', ensureLoggedIn("/"),function(req, res, n
 });
 app.post('/cards/students/:studentName/deleteallcards', ensureLoggedIn("/"),function(req, res){
     if(req.user.accountType==1 || !validateNoSpecialChars(req.params.studentName)){res.redirect("/logout"); return;} //Should log them out here if they go to this address while not an admin, or if they manipulate the student name with XSS etc.
-    const studentName=req.params.studentName;
+    const [studentName]=[sanitize(req.params.studentName)];
     db.run(`DELETE FROM cards WHERE userId=(?)`, [studentName], function(err) {
         if (err) {return next(null, false, { message: 'An unknown error occurred trying to delete cards. Please try again later.' });}
         else{res.redirect('/cards/students/'+studentName);}
