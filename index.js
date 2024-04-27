@@ -89,20 +89,6 @@ app.use((req, res, next) => {
     next();
 });
 ////////////////////////////////////////////////////////////////////////
-/*
-function isAuthenticated() {
-    return function (req, res, next) {
-      if (req.isAuthenticated()) {
-        return next()
-      }
-      res.redirect('/')
-    }
-  }
-
-
-*/
-
-////////////////////////////////////////////////////////////////////////
 app.get('/', function(req,res){
     res.render('index',)   
 });
@@ -110,10 +96,10 @@ app.get('/login', function(req,res){
     res.redirect('/',)   
 });
 
-app.get('/cards', ensureLoggedIn("/"), function(req, res){
+app.get('/cards', ensureLoggedIn("/"), function(req, res, next){
     students=[];
     if(req.user.accountType==2){
-        db.all('SELECT userId FROM users WHERE accountType = 1', [], function(err, rows){
+        db.all('SELECT userId FROM users WHERE accountType = 1', [], function(err, rows, next){
             if(err){return next('An unknown error occurred. Please try again later.');}
             else{
                 rows.forEach(row =>{students.push(row.userId);});
@@ -122,7 +108,7 @@ app.get('/cards', ensureLoggedIn("/"), function(req, res){
         });
     }
     else{
-        db.all('SELECT * FROM cards WHERE userId = ?', [req.user.id], function(err, rows){
+        db.all('SELECT * FROM cards WHERE userId = ?', [req.user.id], function(err, rows, next){
             if(err){return next('An unknown error occurred. Please try again later.');}
             else{
                 res.render('cards', {name:req.user.id, at:req.user.accountType, students:[], currStudent:false, cards:JSON.stringify(rows)});
@@ -131,7 +117,7 @@ app.get('/cards', ensureLoggedIn("/"), function(req, res){
     }
 });
 
-app.get('/cards/students/:studentName', ensureLoggedIn("/"),function(req, res){
+app.get('/cards/students/:studentName', ensureLoggedIn("/"),function(req, res, next){
     if(req.user.accountType==1 || !validateNoSpecialChars(req.params.studentName)){res.redirect("/logout"); return;} //Should log them out here if they go to this address while not an admin, or if they manipulate the student name with XSS etc.
     db.all('SELECT question,answer,color,image,cardId FROM cards WHERE userId = ?', [req.params.studentName], function(err, rows){
         if(err){return next('An unknown error occurred. Please try again later.');}
@@ -207,11 +193,11 @@ app.post('/register', function(req, res, next) {
     }
     if(pwd !== pwdConf){return next(`Passwords don't match`);}
     //Check for duplicates in db
-    db.get('SELECT * FROM users WHERE email = ?', [ email ], function(err, row){
+    db.get('SELECT * FROM users WHERE email = ?', [ email ], function(err, row, next){
         if(err){return next('An unknown error occurred. Please try again later.');}
         else if(row){return next('Email already taken');}
         else{
-            db.get('SELECT * FROM users WHERE userId = ?', [ username ], function(err, row){
+            db.get('SELECT * FROM users WHERE userId = ?', [ username ], function(err, row, next){
                 if(err){return next('An unknown error (1) occurred. Please try again later.');}
                 else if(row){return next( 'Username already taken'); }
                 else{// REGISTRATION
@@ -220,8 +206,7 @@ app.post('/register', function(req, res, next) {
                         if(err){return next(null, false, { message: 'An unknown error (2) occurred. Please try again later.' });}
                         at=1;
                         if(username.includes("admin") || username.includes("Admin")){at=2;}
-                        //console.log(username,email, hashedPassword,salt,at);
-                        db.run(`INSERT INTO users(userId, email, hashed_password, salt, accountType) VALUES(?,?,?,?,?)`, [username,email, hashedPassword,salt,at], function(err) {
+                        db.run(`INSERT INTO users(userId, email, hashed_password, salt, accountType) VALUES(?,?,?,?,?)`, [username,email, hashedPassword,salt,at], function(err, next) {
                             if (err) {return next(null, false, { message: 'An unknown error occurred (3). Please try again later.' });}
                             else{res.redirect('/')} //send the user to the login page
                         });
@@ -232,150 +217,7 @@ app.post('/register', function(req, res, next) {
     });
 });
 
-/*
-app.post('/submit', function(req, res){
-    at=authenticate(req);
-    console.log(at);
-    if(at==0){
-        res.send("ERROR: Username and password do not match a current user. Go back and try again!");
-        //res.redirect('/');
-    }
-    else if(at==1){
-        console.log("You are now connected as a student");
-        res.send("Authentication successful")
-    }
-    else if(at==2){
-        console.log("You are now connected as a teacher");
-        res.send("Authentication successful")
-    }
-    else{
-        res.sendStatus(500);
-    }
-    
-
-});
-*/
-
 ////////////////////////////////////////////////////////////////////////
 app.listen(process.env.PORT || 3000, process.env.IP || "0.0.0.0" , function(){
     console.log("Memory cards app now live");
   });
-
-
-
-
-
-/*
-const users = [
-    { id: 1, username: 'admin', isAdmin: true },
-    { id: 2, username: 'user', isAdmin: false }
-];
-
-// Middleware to simulate user authentication
-function authenticate(req, res, next) {
-    const userId = 2;
-    const user = users.find(u => u.id == userId);
-    if (!user) {
-        return res.status(401).send('Unauthorized');
-    }
-    req.user = user;
-    next();
-}
-
-// Middleware to restrict access to admin-only pages
-function requireAdmin(req, res, next) {
-    if (!req.user.isAdmin) {
-        return res.status(403).send('Forbidden');
-    }
-    next();
-}
-
-
-
-
-// **********************************  Code from here **************************
-app.get('/', function(req,res){
-   
-        res.render('home',)   
-    
-    
-})
-
-app.get('/profile', authenticate, function(req,res){
-   
-    res.render('profile',)   
-
-
-})
-
-app.get('/orders', authenticate, requireAdmin, function(req,res){
-   
-    res.render('orders',)   
-
-
-})
-
-
-app.get('/register', function(req,res){
-   
-    res.render('register',)   
-
-
-})
-
-app.post('/register', (req, res) => {
-    const { username, email } = req.body;
-
-    if (!username) {
-        console.log("No Username Given " )
-
-    } else {
-        console.log("The user is "  + username)
-    }
-
-
-    res.redirect('/')
-});
-
-
-
-
-
-// **********************************  Code to here **************************
-
-
-
-
-
-
-
-
-app.get('/newuser/', function(req,res){
-   // anyone but the blanks profile
-    res.render('badprofile',)   
-
-
-})
-
-
-
-
-// app.use((req, res, next) => {
-//     const allowedOrigins = ['http://example.com', 'https://example.com']; // Specify allowed origins
-//     const origin = req.headers.origin;
-    
-//     if (allowedOrigins.includes(origin)) {
-//         res.setHeader('Access-Control-Allow-Origin', origin);
-//     }
-
-//     res.setHeader('Access-Control-Allow-Methods', 'GET, POST'); // Specify allowed methods
-//     res.setHeader('Access-Control-Allow-Headers', 'Content-Type'); // Specify allowed headers
-    
-//     // Handle preflight requests
-//     if (req.method === 'OPTIONS') {
-//         res.status(200).end();
-//     } else {
-//         next();
-//     }
-// });
-*/
