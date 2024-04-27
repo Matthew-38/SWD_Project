@@ -9,18 +9,29 @@ var LocalStrategy = require('passport-local');
 var crypto = require('node:crypto');
 var ensureLoggedIn = require('connect-ensure-login').ensureLoggedIn;
 const { allowedNodeEnvironmentFlags } = require("node:process");
+var helmet=require("helmet");
 
 var app = express();
 
+app.use(helmet({
+    contentSecurityPolicy:{
+        directives:{"default-src": ["'self'"], "font-src": ["'self'"], "img-src": ["'self'"],
+            "script-src": ["'self'", "'unsafe-inline'"],"style-src": ["'self'", "'unsafe-inline'"], "frame-src": ["'self'"]}
+    }
+}));
 app.set('view engine', 'ejs');
 app.use(express.static(__dirname + '/public'));
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(session({
-    secret: 'keyboard cat',
+    secret: process.env.COOKIE_SECRET || 'awdlawd122e12dwad',
     resave: false, // don't save session if unmodified
     saveUninitialized: false, // don't create session until something stored
     cookie: {maxAge:600000}, //Session timeout 10 minutes
+    path: "/",
+    domain: "127.0.0.1",
+    sameSite: 'strict',
+    secure: true,
     store: new SQLiteStore({ db: 'sessions.db', dir: './db/' })
   }));
 app.use(function(req, res, next) {
@@ -48,7 +59,7 @@ app.use(function(req, res, next) {
 });*/
 
 const PORT = process.env.PORT || 3000;
-const DBFILE='./db/database.db';
+const DBFILE=process.env.db || './db/database.db';
 
 
 let db = new sqlite3.Database(DBFILE, sqlite3.OPEN_READWRITE, (err) => {
@@ -87,10 +98,8 @@ passport.deserializeUser(function(user, cb) {
 });
 
 /////////////////////////////////////////////////////////////////////////
-// CORS Security configuration - origin will need to be modified in Prod
+// CORS Security configuration - origin will need to be modified in Prod. Maybe this is redundant, because Helmet is used?
 app.use((req, res, next) => {
-    res.setHeader('Content-Security-Policy', "default-src 'self'; font-src 'self'; img-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-src 'self'");
-
     res.setHeader('Access-Control-Allow-Origin', 'localhost');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -106,20 +115,21 @@ app.get('/login', function(req,res){
 
 app.get('/cards', ensureLoggedIn("/"), function(req, res, next){
     students=[];
+    const [userId, studentName, accountType]=[req.user.id, req.params.studentName, req.user.accountType];
     if(req.user.accountType==2){
         db.all('SELECT userId FROM users WHERE accountType = 1', [], function(err, rows, next){
             if(err){return next('An unknown error occurred. Please try again later.');}
             else{
                 rows.forEach(row =>{students.push(row.userId);});
-                res.render('cards', {name:req.user.id, at:req.user.accountType, students:students, currStudent:false, cards:[]});
+                res.render('cards', {name:userId, at:accountType, students:students, currStudent:false, cards:[]});
             }
         });
     }
     else{
-        db.all('SELECT * FROM cards WHERE userId = ?', [req.user.id], function(err, rows, next){
+        db.all('SELECT * FROM cards WHERE userId = ?', [userId], function(err, rows, next){
             if(err){return next('An unknown error occurred. Please try again later.');}
             else{
-                res.render('cards', {name:req.user.id, at:req.user.accountType, students:[], currStudent:false, cards:JSON.stringify(rows)});
+                res.render('cards', {name:userId, at:accountType, students:[], currStudent:false, cards:JSON.stringify(rows)});
             }
         });
     }
@@ -127,16 +137,18 @@ app.get('/cards', ensureLoggedIn("/"), function(req, res, next){
 
 app.get('/cards/students/:studentName', ensureLoggedIn("/"),function(req, res, next){
     if(req.user.accountType==1 || !validateNoSpecialChars(req.params.studentName)){res.redirect("/logout"); return;} //Should log them out here if they go to this address while not an admin, or if they manipulate the student name with XSS etc.
-    db.all('SELECT question,answer,color,image,cardId FROM cards WHERE userId = ?', [req.params.studentName], function(err, rows){
+    const [userId, studentName, accountType]=[req.user.id, req.params.studentName, req.user.accountType];
+    db.all('SELECT question,answer,color,image,cardId FROM cards WHERE userId = ?', [studentName], function(err, rows){
         if(err){return next('An unknown error occurred. Please try again later.');}
-        else{res.render('cards', {name:req.user.id, at:req.user.accountType, students:[], currStudent:req.params.studentName, cards:JSON.stringify(rows)});}
+        else{res.render('cards', {name:userId, at:accountType, students:[], currStudent:studentName, cards:JSON.stringify(rows)});}
     });
 });
 app.post('/cards/students/:studentName/deleteallcards', ensureLoggedIn("/"),function(req, res){
     if(req.user.accountType==1 || !validateNoSpecialChars(req.params.studentName)){res.redirect("/logout"); return;} //Should log them out here if they go to this address while not an admin, or if they manipulate the student name with XSS etc.
-    db.run(`DELETE FROM cards WHERE userId=(?)`, [req.params.studentName], function(err) {
-        if (err) {res.redirect('/cards/students/'+req.params.studentName);}
-        else{res.redirect('/cards/students/'+req.params.studentName);}
+    const studentName=req.params.studentName;
+    db.run(`DELETE FROM cards WHERE userId=(?)`, [studentName], function(err) {
+        if (err) {return next(null, false, { message: 'An unknown error occurred trying to delete cards. Please try again later.' });}
+        else{res.redirect('/cards/students/'+studentName);}
     });
 });
 app.post('/cards/students/:studentName/:question/:answer/:color/:image',function(req, res, next){
@@ -144,7 +156,7 @@ app.post('/cards/students/:studentName/:question/:answer/:color/:image',function
     const [studentName,question,answer,color,image]=[sanitize(req.params.studentName),sanitize(decodeURIComponent(req.params.question)),sanitize(decodeURIComponent(req.params.answer)),req.params.color,null]; //image currently not implemented
     db.run(`INSERT INTO cards(userId, question, answer, color, image) VALUES(?,?,?,?,?)`, [studentName,question,answer,color,image], function(err) {
         if (err) {return next(null, false, { message: 'An unknown error occurred trying to add cards. Please try again later.' });}
-        else{res.redirect('/cards/students/'+req.params.studentName);}
+        else{res.redirect('/cards/students/'+studentName);}
     });
 });
 app.post('/cards/students/:studentName/:question/:answer/:color/:image/:replace', ensureLoggedIn("/"),function(req, res, next){
@@ -152,7 +164,7 @@ app.post('/cards/students/:studentName/:question/:answer/:color/:image/:replace'
     const [studentName,question,answer,color,image]=[sanitize(req.params.studentName),sanitize(decodeURIComponent(req.params.question)),sanitize(decodeURIComponent(req.params.answer)),req.params.color,null]; //image currently not implemented
     db.run(`REPLACE INTO cards(cardId, userId, question, answer, color, image) VALUES(?,?,?,?,?,?)`, [req.params.replace,studentName,question,answer,color,image,], function(err) {
         if (err) {return next(null, false, { message: 'An unknown error occurred trying to add cards. Please try again later.' });}
-        else{res.redirect('/cards/students/'+req.params.studentName);}
+        else{res.redirect('/cards/students/'+studentName);}
     });
 });
 

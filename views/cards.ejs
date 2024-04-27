@@ -13,7 +13,7 @@
 		<% if(cards.length>0){ %>
 			cardsData=JSON.parse('<%- cards %>');
 		<% } %>
-		const currStudent='<%- currStudent %>';
+		const currStudent='<%= currStudent %>';
 	</script> 
 	<script src="/script.js" type="text/javascript" defer></script>
 </head>
@@ -30,12 +30,12 @@
 					</i>
 					Add New Card
 				</button>
-				<h1 class="page-header__title"><span>Cards for <%- currStudent +" <br/> Teacher: "+ name %></span></h1>
+				<h1 class="page-header__title"><span>Cards for <%= currStudent %> <br/> Teacher: <%= name %></span></h1>
 				<button class="page-button modify-card page-header__button">Modify card</button>
 				<% } else if(at==2){ %>
-					<h1 class="page-header__title"><span><%- name %>'s Teacher Account</span></h1>
+					<h1 class="page-header__title"><span><%= name %>'s Teacher Account</span></h1>
 				<% } else{ %>
-					<h1 class="page-header__title"><span><%- name %>'s Memory Cards</span></h1>
+					<h1 class="page-header__title"><span><%= name %>'s Memory Cards</span></h1>
 				<% } %>
 		</header>
 		<main class="page-main">
@@ -43,7 +43,7 @@
 				<% if(at==2){ %>
 				<p id="nocard-placeholder">Select a student to manage the cards for them</p>
 				<% students.forEach(student => { %>
-					<br/><a href="/cards/students/<%- student %>"><%- student %></a>
+					<br/><a href="/cards/students/<%= student %>"><%= student %></a>
 				<% }); %>
 				<% }else{ %>
 				<p>There are no cards yet, ask your teacher to create some for you</p>
